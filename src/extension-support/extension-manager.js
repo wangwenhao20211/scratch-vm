@@ -220,7 +220,19 @@ class ExtensionManager {
 
         this.loadingAsyncExtensions++;
 
-        const sandboxMode = await this.securityManager.getSandboxMode(extensionURL);
+        // ============================================================
+        // 🛠️ 修改开始：强制让你的扩展库以非沙箱模式加载
+        // ============================================================
+        let sandboxMode = await this.securityManager.getSandboxMode(extensionURL);
+        
+        // 如果你的扩展URL以这个前缀开头，强行改为 unsandboxed
+        if (extensionURL.startsWith('https://turbowarp-extensions.pages.dev/')) {
+            sandboxMode = 'unsandboxed';
+        }
+        // ============================================================
+        // 🛠️ 修改结束
+        // ============================================================
+
         const rewritten = await this.securityManager.rewriteExtensionURL(extensionURL);
 
         if (sandboxMode === 'unsandboxed') {
