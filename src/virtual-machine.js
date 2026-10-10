@@ -583,23 +583,20 @@ class VirtualMachine extends EventEmitter {
      * @param {JSZip.OutputType} [type] JSZip output type. Defaults to 'blob' for Scratch compatibility.
      * @returns {Promise<unknown>} Compressed sb3 file in a type determined by the type argument.
      */
-    saveProjectSb3 (type, onProgress) {
-    if (onProgress) onProgress(0);
-
+saveProjectSb3 (type, onProgress) {
+    if (onProgress) onProgress({percent: 0, currentFile: null});
     const zip = this._saveProjectZip();
-
-    // 序列化 project.json 和收集资产已经完成
-    if (onProgress) onProgress(0.2);
-
+    if (onProgress) onProgress({percent: 0.2, currentFile: null});
     return zip.generateAsync({
-        // Don't configure compression here. _saveProjectZip() will set it for each file.
         type: type || 'blob',
         mimeType: 'application/x.scratch.sb3'
     }, onProgress ? metadata => {
-        // JSZip 的 percent 是 0-100，映射到 20%-100%
-        onProgress(0.2 + (metadata.percent / 100) * 0.8);
+        onProgress({
+            percent: 0.2 + (metadata.percent / 100) * 0.8,
+            currentFile: metadata.currentFile || null
+        });
     } : undefined).then(result => {
-        if (onProgress) onProgress(1);
+        if (onProgress) onProgress({percent: 1, currentFile: null});
         return result;
     });
 }
