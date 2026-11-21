@@ -67,6 +67,15 @@ const createExtensionService = extensionManager => {
     service.allocateWorker = extensionManager.allocateWorker.bind(extensionManager);
     service.onWorkerInit = extensionManager.onWorkerInit.bind(extensionManager);
     service.registerExtensionService = extensionManager.registerExtensionService.bind(extensionManager);
+    service.beginNetworkRequest = (url, method) => {
+        const manager = typeof window !== 'undefined' && window.__wwhNetworkManager;
+        if (!manager) return {id: null, allowed: true};
+        return manager.beginRequest(url, method, 'vm-worker');
+    };
+    service.finishNetworkRequest = (id, values) => {
+        const manager = typeof window !== 'undefined' && window.__wwhNetworkManager;
+        if (manager && id !== null) manager.updateRequest(id, values);
+    };
     return service;
 };
 
