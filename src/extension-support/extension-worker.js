@@ -75,7 +75,32 @@ class ExtensionWorker {
 global.Scratch = global.Scratch || {};
 Object.assign(global.Scratch, ScratchCommon, {
     canFetch: () => Promise.resolve(true),
-    fetch: (url, options) => fetch(url, options),
+    fetch: async (url, options) => {
+        const actualURL = url instanceof Request ? url.url : String(url);
+        const method = (options && options.method) || (url instanceof Request ? url.method : 'GET');
+        const request = await dispatch.call('extensions', 'beginNetworkRequest', actualURL, method);
+        if (!request.allowed) {
+            throw new TypeError(`Network request blocked by TurboWarp network manager: ${actualURL}`);
+        }
+        try {
+            const response = await fetch(url, options);
+            if (request.id !== null) {
+                dispatch.call('extensions', 'finishNetworkRequest', request.id, {
+                    status: response.ok ? 'success' : 'http-error',
+                    statusCode: response.status
+                });
+            }
+            return response;
+        } catch (error) {
+            if (request.id !== null) {
+                dispatch.call('extensions', 'finishNetworkRequest', request.id, {
+                    status: 'error',
+                    error: String(error)
+                });
+            }
+            throw error;
+        }
+    },
     canOpenWindow: () => Promise.resolve(false),
     openWindow: () => Promise.reject(new Error('Scratch.openWindow not supported in sandboxed extensions')),
     canRedirect: () => Promise.resolve(false),
