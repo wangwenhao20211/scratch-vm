@@ -30,7 +30,7 @@ self.fetch = async (url, options) => {
             dispatch.call('extensions', 'finishNetworkRequest', request.id, {
                 status: response.ok ? 'success' : 'http-error',
                 statusCode: response.status
-            });
+            }).catch(() => {});
         }
         return response;
     } catch (error) {
@@ -38,7 +38,7 @@ self.fetch = async (url, options) => {
             dispatch.call('extensions', 'finishNetworkRequest', request.id, {
                 status: 'error',
                 error: String(error)
-            });
+            }).catch(() => {});
         }
         throw error;
     }
