@@ -9,6 +9,41 @@ const createTranslate = require('./tw-l10n');
 
 const translate = createTranslate(null);
 
+// Route every fetch made by extension code through the GUI's network policy,
+// not only calls made through Scratch.fetch().
+const nativeFetch = self.fetch.bind(self);
+self.fetch = async (url, options) => {
+    const actualURL = url instanceof Request ? url.url : String(url);
+    const method = (options && options.method) || (url instanceof Request ? url.method : 'GET');
+    let request = {id: null, allowed: true};
+    try {
+        request = await dispatch.call('extensions', 'beginNetworkRequest', actualURL, method);
+    } catch (e) {
+        // Preserve standalone VM compatibility when no GUI network manager is connected.
+    }
+    if (!request.allowed) {
+        throw new TypeError(`Network request blocked by TurboWarp network manager: ${actualURL}`);
+    }
+    try {
+        const response = await nativeFetch(url, options);
+        if (request.id !== null) {
+            dispatch.call('extensions', 'finishNetworkRequest', request.id, {
+                status: response.ok ? 'success' : 'http-error',
+                statusCode: response.status
+            });
+        }
+        return response;
+    } catch (error) {
+        if (request.id !== null) {
+            dispatch.call('extensions', 'finishNetworkRequest', request.id, {
+                status: 'error',
+                error: String(error)
+            });
+        }
+        throw error;
+    }
+};
+
 const loadScripts = url => {
     if (isWorker) {
         importScripts(url);
@@ -75,37 +110,7 @@ class ExtensionWorker {
 global.Scratch = global.Scratch || {};
 Object.assign(global.Scratch, ScratchCommon, {
     canFetch: () => Promise.resolve(true),
-    fetch: async (url, options) => {
-        const actualURL = url instanceof Request ? url.url : String(url);
-        const method = (options && options.method) || (url instanceof Request ? url.method : 'GET');
-        let request = {id: null, allowed: true};
-        try {
-            request = await dispatch.call('extensions', 'beginNetworkRequest', actualURL, method);
-        } catch (e) {
-            // Preserve standalone VM compatibility when no GUI network manager is connected.
-        }
-        if (!request.allowed) {
-            throw new TypeError(`Network request blocked by TurboWarp network manager: ${actualURL}`);
-        }
-        try {
-            const response = await fetch(url, options);
-            if (request.id !== null) {
-                dispatch.call('extensions', 'finishNetworkRequest', request.id, {
-                    status: response.ok ? 'success' : 'http-error',
-                    statusCode: response.status
-                });
-            }
-            return response;
-        } catch (error) {
-            if (request.id !== null) {
-                dispatch.call('extensions', 'finishNetworkRequest', request.id, {
-                    status: 'error',
-                    error: String(error)
-                });
-            }
-            throw error;
-        }
-    },
+    fetch: (url, options) => fetch(url, options),
     canOpenWindow: () => Promise.resolve(false),
     openWindow: () => Promise.reject(new Error('Scratch.openWindow not supported in sandboxed extensions')),
     canRedirect: () => Promise.resolve(false),
