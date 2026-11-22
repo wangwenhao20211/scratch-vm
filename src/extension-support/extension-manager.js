@@ -623,11 +623,15 @@ class ExtensionManager {
             const url = this.isBuiltinExtension(id) ? null : this.workerURLs[workerId] || null;
             return {
                 id,
-                name: info.name || id,
+                name: typeof info.name === 'string' ? info.name :
+                    (info.name && (info.name.default || info.name.defaultMessage)) || id,
                 url,
                 builtin: this.isBuiltinExtension(id),
                 blocks: (info.blocks || []).filter(block => block && typeof block === 'object')
-                    .map(block => ({opcode: block.opcode, text: block.text || block.opcode}))
+                    .map(block => ({
+                        opcode: block.opcode,
+                        text: typeof block.text === 'string' ? block.text : block.opcode
+                    }))
             };
         }));
     }
