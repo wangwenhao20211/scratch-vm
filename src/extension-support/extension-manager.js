@@ -678,6 +678,9 @@ class ExtensionManager {
     async unloadExtension (extensionId) {
         const serviceName = this._loadedExtensions.get(extensionId);
         if (!serviceName) throw new Error(`Unknown extension: ${extensionId}`);
+        if (this.runtime.getPeripheralIsConnected(extensionId)) {
+            throw new Error(`Disconnect the ${extensionId} device before unloading this extension.`);
+        }
         const usage = this.getExtensionUsage(extensionId);
         if (usage.count !== 0) {
             throw new Error(`Cannot unload ${extensionId}: ${usage.count} block(s) still use it.`);
