@@ -797,6 +797,10 @@ class Runtime extends EventEmitter {
      * Event name for reporting that an extension was added.
      * @const {string}
      */
+    static get EXTENSION_REMOVED () {
+        return 'EXTENSION_REMOVED';
+    }
+
     static get EXTENSION_ADDED () {
         return 'EXTENSION_ADDED';
     }
@@ -1111,6 +1115,7 @@ class Runtime extends EventEmitter {
             delete this._flowing[opcode];
         }
         this._blockInfo.splice(categoryIndex, 1);
+        this.emit(Runtime.EXTENSION_REMOVED, extensionId);
         this.emit(Runtime.BLOCKS_NEED_UPDATE);
     }
 

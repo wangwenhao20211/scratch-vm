@@ -125,6 +125,9 @@ class VirtualMachine extends EventEmitter {
         this.runtime.on(Runtime.BLOCK_DRAG_END, (blocks, topBlockId) => {
             this.emit(Runtime.BLOCK_DRAG_END, blocks, topBlockId);
         });
+        this.runtime.on(Runtime.EXTENSION_REMOVED, extensionId => {
+            this.emit(Runtime.EXTENSION_REMOVED, extensionId);
+        });
         this.runtime.on(Runtime.EXTENSION_ADDED, categoryInfo => {
             this.emit(Runtime.EXTENSION_ADDED, categoryInfo);
         });
