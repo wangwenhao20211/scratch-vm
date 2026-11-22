@@ -611,6 +611,89 @@ class ExtensionManager {
         return blockInfo;
     }
 
+
+    /**
+     * Get metadata for all currently loaded extensions.
+     * @returns {Promise<Array<object>>}
+     */
+    async getLoadedExtensions () {
+        return Promise.all(Array.from(this._loadedExtensions.entries()).map(async ([id, serviceName]) => {
+            const info = await dispatch.call(serviceName, 'getInfo');
+            const workerId = +serviceName.split('.')[1];
+            const url = this.isBuiltinExtension(id) ? null : this.workerURLs[workerId] || null;
+            return {
+                id,
+                name: info.name || id,
+                url,
+                builtin: this.isBuiltinExtension(id),
+                blocks: (info.blocks || []).filter(block => block && typeof block === 'object')
+                    .map(block => ({opcode: block.opcode, text: block.text || block.opcode}))
+            };
+        }));
+    }
+
+    /**
+     * Find every project block using an extension.
+     * @param {string} extensionId
+     * @returns {{count: number, blocks: Array<object>}}
+     */
+    getExtensionUsage (extensionId) {
+        const blocks = [];
+        const prefix = `${extensionId}_`;
+        for (const target of this.runtime.targets) {
+            const targetBlocks = target.blocks && target.blocks._blocks;
+            if (!targetBlocks) continue;
+            for (const [blockId, block] of Object.entries(targetBlocks)) {
+                if (block.opcode && block.opcode.startsWith(prefix)) {
+                    blocks.push({
+                        blockId,
+                        opcode: block.opcode,
+                        targetId: target.id,
+                        targetName: target.getName()
+                    });
+                }
+            }
+        }
+        const monitorBlocks = this.runtime.monitorBlocks && this.runtime.monitorBlocks._blocks;
+        if (monitorBlocks) {
+            for (const [blockId, block] of Object.entries(monitorBlocks)) {
+                if (block.opcode && block.opcode.startsWith(prefix)) {
+                    blocks.push({
+                        blockId,
+                        opcode: block.opcode,
+                        targetId: null,
+                        targetName: '监视器'
+                    });
+                }
+            }
+        }
+        return {count: blocks.length, blocks};
+    }
+
+    /**
+     * Unload an extension only when no project blocks refer to it.
+     * @param {string} extensionId
+     * @returns {Promise<void>}
+     */
+    async unloadExtension (extensionId) {
+        const serviceName = this._loadedExtensions.get(extensionId);
+        if (!serviceName) throw new Error(`Unknown extension: ${extensionId}`);
+        const usage = this.getExtensionUsage(extensionId);
+        if (usage.count !== 0) {
+            throw new Error(`Cannot unload ${extensionId}: ${usage.count} block(s) still use it.`);
+        }
+        const service = dispatch.services[serviceName];
+        if (service && !service.isRemote) {
+            if (typeof service.dispose === 'function') await service.dispose();
+            else if (typeof service._shutdown === 'function') await service._shutdown();
+        }
+        delete dispatch.services[serviceName];
+        this._loadedExtensions.delete(extensionId);
+        delete this.runtime[`ext_${extensionId}`];
+        this.runtime._unregisterExtensionPrimitives(extensionId);
+        this.runtime.emit(this.runtime.constructor.TOOLBOX_EXTENSIONS_NEED_UPDATE);
+    }
+
     getExtensionURLs () {
         const extensionURLs = {};
         for (const [extensionId, serviceName] of this._loadedExtensions.entries()) {

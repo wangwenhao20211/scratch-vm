@@ -51,6 +51,7 @@ const createRuntimeService = runtime => {
     const service = {};
     service._refreshExtensionPrimitives = runtime._refreshExtensionPrimitives.bind(runtime);
     service._registerExtensionPrimitives = runtime._registerExtensionPrimitives.bind(runtime);
+    service._unregisterExtensionPrimitives = runtime._unregisterExtensionPrimitives.bind(runtime);
     return service;
 };
 
@@ -1475,6 +1476,34 @@ saveProjectSb3 (type, onProgress) {
      * @returns {Promise} Promise that resolves when all the blocks have been
      *     updated for a new locale (or empty if locale hasn't changed.)
      */
+
+    /**
+     * List extensions currently loaded into this VM.
+     * @returns {Promise<Array<object>>}
+     */
+    getLoadedExtensions () {
+        return this.extensionManager.getLoadedExtensions();
+    }
+
+    /**
+     * Get all blocks in the project that reference an extension.
+     * @param {string} extensionId
+     * @returns {{count: number, blocks: Array<object>}}
+     */
+    getExtensionUsage (extensionId) {
+        return this.extensionManager.getExtensionUsage(extensionId);
+    }
+
+    /**
+     * Unload an extension when it is no longer referenced by project blocks.
+     * @param {string} extensionId
+     * @returns {Promise<void>}
+     */
+    async unloadExtension (extensionId) {
+        await this.extensionManager.unloadExtension(extensionId);
+        this.emitWorkspaceUpdate();
+    }
+
     setLocale (locale, messages) {
         if (locale !== formatMessage.setup().locale) {
             formatMessage.setup({locale: locale, translations: {[locale]: messages}});

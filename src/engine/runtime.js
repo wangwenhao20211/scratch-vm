@@ -1093,6 +1093,27 @@ class Runtime extends EventEmitter {
         this.emit(Runtime.EXTENSION_ADDED, categoryInfo);
     }
 
+
+    /**
+     * Remove all runtime metadata and primitives belonging to an extension.
+     * The caller must ensure that no project blocks reference the extension.
+     * @param {string} extensionId
+     */
+    _unregisterExtensionPrimitives (extensionId) {
+        const categoryIndex = this._blockInfo.findIndex(info => info.id === extensionId);
+        if (categoryIndex === -1) return;
+        const categoryInfo = this._blockInfo[categoryIndex];
+        for (const blockInfo of categoryInfo.blocks || []) {
+            const opcode = blockInfo.json && blockInfo.json.type;
+            if (!opcode) continue;
+            delete this._primitives[opcode];
+            delete this._hats[opcode];
+            delete this._flowing[opcode];
+        }
+        this._blockInfo.splice(categoryIndex, 1);
+        this.emit(Runtime.BLOCKS_NEED_UPDATE);
+    }
+
     /**
      * Reregister the primitives for an extension
      * @param  {ExtensionMetadata} extensionInfo - new info (results of running getInfo) for an extension
