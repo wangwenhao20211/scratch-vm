@@ -648,25 +648,16 @@ class ExtensionManager {
             const targetBlocks = target.blocks && target.blocks._blocks;
             if (!targetBlocks) continue;
             for (const [blockId, block] of Object.entries(targetBlocks)) {
+                // Shadow blocks are default/input placeholders, not blocks the user
+                // has placed in the project. Blockly converts a shadow to a regular
+                // block when the user actually drags it out.
+                if (block.shadow) continue;
                 if (block.opcode && block.opcode.startsWith(prefix)) {
                     blocks.push({
                         blockId,
                         opcode: block.opcode,
                         targetId: target.id,
                         targetName: target.getName()
-                    });
-                }
-            }
-        }
-        const monitorBlocks = this.runtime.monitorBlocks && this.runtime.monitorBlocks._blocks;
-        if (monitorBlocks) {
-            for (const [blockId, block] of Object.entries(monitorBlocks)) {
-                if (block.opcode && block.opcode.startsWith(prefix)) {
-                    blocks.push({
-                        blockId,
-                        opcode: block.opcode,
-                        targetId: null,
-                        targetName: '监视器'
                     });
                 }
             }
