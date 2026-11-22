@@ -683,12 +683,24 @@ class ExtensionManager {
             throw new Error(`Cannot unload ${extensionId}: ${usage.count} block(s) still use it.`);
         }
         const service = dispatch.services[serviceName];
+        const workerId = +serviceName.split('.')[1];
+        const siblingExtensions = Array.from(this._loadedExtensions.entries())
+            .filter(([id, name]) => id !== extensionId && +name.split('.')[1] === workerId);
         if (service && !service.isRemote) {
             if (typeof service.dispose === 'function') await service.dispose();
             else if (typeof service._shutdown === 'function') await service._shutdown();
         }
         delete dispatch.services[serviceName];
         this._loadedExtensions.delete(extensionId);
+        // A worker can host more than one extension ID. Only terminate it when its final extension is removed.
+        if (siblingExtensions.length === 0) {
+            if (service && typeof service.terminate === 'function') {
+                service.terminate();
+            } else if (service && service.iframe && service.iframe.parentNode) {
+                service.iframe.parentNode.removeChild(service.iframe);
+            }
+            delete this.workerURLs[workerId];
+        }
         delete this.runtime[`ext_${extensionId}`];
         this.runtime._unregisterExtensionPrimitives(extensionId);
         this.runtime.emit(this.runtime.constructor.TOOLBOX_EXTENSIONS_NEED_UPDATE);
